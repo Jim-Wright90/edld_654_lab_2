@@ -315,8 +315,7 @@ fit_enet <- tune::fit_resamples(
                                     save_pred = TRUE))
 
 
-
-enet_fit %>% select_best(metric = "rmse")
+fit_enet %>% select_best(metric = "rmse")
 
 ```
 
