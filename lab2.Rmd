@@ -17,6 +17,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 library(tidyverse)
 library(tidymodels)
+library(tune)
 ```
 
 ## Read in the `train.csv` data. Please feel free to use `sample_frac()` if you find that the data file is too large for your machine.
@@ -79,21 +80,21 @@ lasso4_rec <-
 
 ```
 
-## 4. Parsnip model
+## 4. Parsnip model (refer to slides p.65)
 
 Create a `{parsnip}` lasso model where the penalty hyperparameter is set to be tuned.
 
 ```{r, lasso}
 
-mod_lasso <- linear_reg() %>% 
+lasso_tune_mod <- linear_reg() %>% 
   set_engine("glmnet") %>% 
   set_mode("regression") %>% 
-  set_args(penalty = .1,
+  set_args(penalty = tune(), # this is a placeholder for hyper parameters to be tuned 
            mixture = 1)
 
 ```
 
-## 5. Fit a tuned lasso model
+## 5. Fit a tuned lasso model (refer to slides p.65)
 
 Complete the code maze below to fit a tuned lasso model.
 
@@ -102,14 +103,14 @@ Complete the code maze below to fit a tuned lasso model.
 #install.packages("glmnet")
 library(glmnet)
 
-lasso_grid <- grid_regular(penalty())
+lasso_grid <- grid_regular(penalty(), levels = 10)
 
 lasso4_fit_1 <- tune_grid(
-  mod_lasso,
+  lasso_tune_mod,
   preprocessor = lasso4_rec,
   resamples = cv_splits,
   grid = lasso_grid,
-  control = tune::control_resamples(verbose = TRUE,
+  control = control_resamples(verbose = TRUE,
                                     save_pred = TRUE)
 )
 
@@ -118,7 +119,12 @@ lasso4_fit_1 <- tune_grid(
 ### Question A
   + How many models were fit to each fold of `lasso4_fit_1`? (Please provide a numeric answer, *and* use code to corroborate your answer.)
   
+  10 models were fit to each fold;
+  
 ```{r}
+head(lasso4_fit_1)
+
+lasso4_fit_1[[3]][[1]] # I see there are ten models but don't know how to pull the number
 
 ```
 
@@ -126,6 +132,7 @@ lasso4_fit_1 <- tune_grid(
 
 ```{r}
 
+lasso4_fit_1[[1]]
 
 ```
 
