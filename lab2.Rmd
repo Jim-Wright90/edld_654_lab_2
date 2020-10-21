@@ -67,7 +67,6 @@ Complete the code maze below by filling in the blanks (____) to create a recipe 
 * dummy code all nominal predictors
 
 ```{r, preprocess}
-
 lasso4_rec <- 
   recipe(
     formula = score ~ gndr + ethnic_cd + econ_dsvntg + enrl_grd, 
@@ -90,7 +89,7 @@ lasso_tune_mod <- linear_reg() %>%
   set_engine("glmnet") %>% 
   set_mode("regression") %>% 
   set_args(penalty = tune(), # this is a placeholder for hyper parameters to be tuned 
-           mixture = 1)
+           mixture = 1) # only L1
 
 ```
 
@@ -103,13 +102,13 @@ Complete the code maze below to fit a tuned lasso model.
 #install.packages("glmnet")
 library(glmnet)
 
-lasso_grid <- grid_regular(penalty(), levels = 10)
+lasso_grid <- grid_regular(penalty()) # level = 10 --> specify how many model we want? if not, it gives 3 modeld --> where does this 3 come from?
 
 lasso4_fit_1 <- tune_grid(
   lasso_tune_mod,
   preprocessor = lasso4_rec,
   resamples = cv_splits,
-  grid = lasso_grid,
+  grid = lasso_grid, 
   control = control_resamples(verbose = TRUE,
                                     save_pred = TRUE)
 )
@@ -124,7 +123,9 @@ lasso4_fit_1 <- tune_grid(
 ```{r}
 head(lasso4_fit_1)
 
-lasso4_fit_1[[3]][[1]] # I see there are ten models but don't know how to pull the number
+collect_metrics(lasso4_fit_1) %>% 
+  filter(.metric == "rmse") %>% 
+  nrow()
 
 ```
 
@@ -132,7 +133,9 @@ lasso4_fit_1[[3]][[1]] # I see there are ten models but don't know how to pull t
 
 ```{r}
 
-lasso4_fit_1[[1]]
+collect_metrics(lasso4_fit_1) %>% 
+  select(penalty) %>% 
+  unique()
 
 ```
 
@@ -141,14 +144,18 @@ lasso4_fit_1[[1]]
 Use your code from (5) above to complete the code maze below to fit a second tuned lasso model, using the same `parsnip` model, `recipe`, and resampled object you used before.
 
 ```{r, lasso_fit_2}
+# no grid here
 
 lasso4_fit_2 <- tune_grid(
-  mod_lasso,
-  preprocessor = lasso4_rec,
+  lasso_tune_mod, 
+  preprocessor = lasso4_rec, # recipe
   resamples = cv_splits,
   control = tune::control_resamples(verbose = TRUE,
                                     save_pred = TRUE)
 )
+
+
+lasso4_fit_2[[1]][[2]]
 
 ```
 
@@ -157,8 +164,12 @@ lasso4_fit_2 <- tune_grid(
   + How many models were fit to each fold of `lasso4_fit_2`? (Please provide a numeric answer, *and* use code to corroborate your answer.)
 
 ```{r}
+# lasso4_fit_1 does have grid (lasso_grid) >< lasso4_fit_2 has no grid line ==> this grid creates diff # number of models --> why 3 models in lasso4_fit_1 and 10 models in fit2? 
+# slide 58: when use grid line --> regular grid --> 3 models
 
-
+collect_metrics(lasso4_fit_2) %>% 
+  filter(.metric == "rmse") %>% 
+  nrow()
 ```
 
   + If this is different than the number of models of `lasso4_fit_1`, please explain why.
@@ -167,15 +178,44 @@ lasso4_fit_2 <- tune_grid(
 
 ```{r}
 
-
+collect_metrics(lasso4_fit_2) %>% 
+  select(penalty) %>% 
+  unique()
 ```
 
 ## 7. Complete the necessary steps to create and fit a tuned lasso model that has seven or more predictors (use any tuning grid you like). Note that you will need to create a new recipe as well.
 
 ```{r, lasso8}
+# make a new recipe use 7 vars
+lasso7_rec <- 
+  recipe(
+    formula = score ~ gndr + ethnic_cd + econ_dsvntg + enrl_grd + migrant_ed_fg + classification + tst_atmpt_fg, 
+    data = data_train #use your training set here
+  ) %>%
+  step_naomit(everything(), skip = TRUE) %>% 
+  step_string2factor(gndr, ethnic_cd, econ_dsvntg) %>%  #may not need, depending on your formula
+  step_dummy(gndr, ethnic_cd, econ_dsvntg, tst_atmpt_fg, migrant_ed_fg) %>% #may not need, depending on your formula
+  step_normalize(enrl_grd) #may not need, depending on your formula
 
 
+# make a model
 
+lasso_tune_mod2 <- linear_reg() %>% 
+  set_engine("glmnet") %>% 
+  set_mode("regression") %>% 
+  set_args(penalty = tune(), 
+           mixture = 1) 
+
+lasso_grid <- grid_regular(penalty()) # level = 10 --> specify how many model we want? if not, it gives 3 modeld --> where does this 3 come from?
+
+lasso7_fit_1 <- tune_grid(
+  lasso_tune_mod2,
+  preprocessor = lasso7_rec,
+  resamples = cv_splits,
+  grid = lasso_grid, 
+  control = control_resamples(verbose = TRUE,
+                                    save_pred = TRUE)
+)
 
 ```
 
@@ -183,6 +223,9 @@ lasso4_fit_2 <- tune_grid(
 
 ```{r}
 
+ lasso4_fit_1 %>% select_best(metric = "rmse")
+
+ lasso7_fit_1 %>% select_best(metric = "rmse")
 ```
 
 ## 9. Fit a tuned elastic net model with the same predictors from (7). 
