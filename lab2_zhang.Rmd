@@ -1,0 +1,280 @@
+---
+title: "Lab 2: Thuy; Claire; Jim"
+subtitle: "Resampling"
+date: "Assigned 10/14/20, Due 10/21/20"
+output:
+  html_document: 
+    toc: true
+    toc_float: true
+    theme: "journal"
+    css: "website-custom.css"
+---
+test
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(tidymodels)
+library(tune)
+library(glmnet)
+```
+
+## Read in the `train.csv` data. Please feel free to use `sample_frac()` if you find that the data file is too large for your machine.
+
+```{r, data}
+data <- read_csv(here::here("data", "train.csv"))
+
+data <- dplyr::sample_frac(data, size = 0.02)
+```
+
+
+## 1. Initial Split
+
+Set a seed and split the data into a training set and a testing set as two named objects. 
+
+```{r, initial_split}
+set.seed(3000)
+
+(data_split <- initial_split(data))
+
+data_train <- training(data_split)
+data_test <- testing(data_split)
+
+class(data_split)
+class(data_train)
+class(data_test)
+
+```
+
+## 2. Resample
+
+Set a seed and use 10-fold cross-validation to resample the traning data.
+
+```{r, resample}
+set.seed(3000)
+
+(cv_splits <- vfold_cv(data_train, v = 10))
+
+```
+
+## 3. Preprocess
+
+Complete the code maze below by filling in the blanks (____) to create a recipe object that includes:
+* a formula model with `score` predicted by 4 predictors
+* be sure there are no missing data in your predictors (try `step_naomit()`)
+* center and scale all numeric predictors
+* dummy code all nominal predictors
+
+```{r, preprocess}
+
+lasso4_rec <- 
+  recipe(
+    formula = score ~ gndr + ethnic_cd + econ_dsvntg + enrl_grd, 
+    data = data_train #use your training set here
+  ) %>%
+  step_naomit(everything(), skip = TRUE) %>% 
+  step_string2factor(gndr, ethnic_cd, econ_dsvntg) %>%  
+  step_dummy(gndr, ethnic_cd, econ_dsvntg) %>% 
+  step_normalize(enrl_grd) 
+
+```
+
+## 4. Parsnip model
+
+Create a `{parsnip}` lasso model where the penalty hyperparameter is set to be tuned.
+
+```{r, lasso}
+
+lasso_tune_mod <- linear_reg() %>% 
+  set_engine("glmnet") %>% 
+  set_mode("regression") %>% 
+  set_args(penalty = tune(), 
+           mixture = 1)
+
+```
+
+## 5. Fit a tuned lasso model 
+
+Complete the code maze below to fit a tuned lasso model.
+
+```{r, lasso_fit_1}
+
+lasso_grid <- grid_regular(penalty())
+
+lasso4_fit_1 <- tune_grid(
+  lasso_tune_mod,
+  preprocessor = lasso4_rec,
+  resamples = cv_splits,
+  grid = lasso_grid,
+  control = control_resamples(verbose = TRUE,
+                                    save_pred = TRUE)
+)
+
+```
+
+### Question A
+  + How many models were fit to each fold of `lasso4_fit_1`? (Please provide a numeric answer, *and* use code to corroborate your answer.)
+  
+  ANSWER: 3
+  
+```{r}
+
+lasso4_fit_1 %>% 
+  collect_metrics() %>% 
+  filter(.metric == "rmse") %>% 
+  nrow()
+
+```
+
+  + Use code to list the different values of `penalty()` that were used.
+
+```{r}
+
+lasso4_fit_1 %>% 
+  collect_metrics() %>% 
+  select(penalty) %>% 
+  unique()
+
+```
+
+## 6. Fit another tuned lasso model
+
+Use your code from (5) above to complete the code maze below to fit a second tuned lasso model, using the same `parsnip` model, `recipe`, and resampled object you used before.
+
+```{r, lasso_fit_2}
+
+lasso4_fit_2 <- tune_grid(
+  lasso_tune_mod,
+  preprocessor = lasso4_rec,
+  resamples = cv_splits,
+  control = control_resamples(verbose = TRUE,
+                                    save_pred = TRUE)
+)
+
+```
+
+### Question B
+
+  + How many models were fit to each fold of `lasso4_fit_2`? (Please provide a numeric answer, *and* use code to corroborate your answer.)
+  
+  ANSWER: 10
+
+```{r}
+lasso4_fit_2 %>% 
+  collect_metrics() %>% 
+  filter(.metric == "rmse") %>% 
+  nrow()
+
+```
+
+  + If this is different than the number of models of `lasso4_fit_1`, please explain why.
+
+ ANSWER: lasso4_fit_1 defined grid to regular grid but lasso4_fit_2 didn't. 
+
+  + Use code to list the different values of `penalty()` that were used for *lasso4_fit_2*.
+
+```{r}
+
+lasso4_fit_2 %>% 
+  collect_metrics() %>% 
+  select(penalty) %>% 
+  unique()
+
+```
+
+## 7. Complete the necessary steps to create and fit a tuned lasso model that has seven or more predictors (use any tuning grid you like). Note that you will need to create a new recipe as well.
+
+```{r, lasso8}
+
+foo <- data %>% 
+  select(gndr, ethnic_cd, econ_dsvntg, enrl_grd, migrant_ed_fg, classification, tst_atmpt_fg)
+head(foo)
+
+lasso7_rec <- 
+  recipe(
+    formula = score ~ gndr + ethnic_cd + econ_dsvntg + enrl_grd + migrant_ed_fg + classification + tst_atmpt_fg, 
+    data = data_train 
+  ) %>%
+  step_naomit(everything(), skip = TRUE) %>% 
+  step_string2factor(gndr, ethnic_cd, econ_dsvntg, tst_atmpt_fg, migrant_ed_fg) %>%  
+  step_dummy(gndr, ethnic_cd, econ_dsvntg, tst_atmpt_fg, migrant_ed_fg) %>% 
+  step_normalize(enrl_grd, classification) 
+
+
+lasso_tune_mod_2 <- linear_reg() %>% 
+  set_engine("glmnet") %>% 
+  set_mode("regression") %>% 
+  set_args(penalty = tune(), 
+           mixture = 1)
+
+lasso_grid <- grid_regular(penalty())
+
+lasso7_fit_1 <- tune_grid(
+  lasso_tune_mod_2,
+  preprocessor = lasso7_rec,
+  resamples = cv_splits,
+  grid = lasso_grid,
+  control = control_resamples(verbose = TRUE,
+                              save_pred = TRUE)
+)
+
+```
+
+## 8. Compare the metrics from the best lasso model with 4 predictors to the best lasso model with 7+ predicors. Which is best?
+
+ANSWER: they are the same.
+
+```{r}
+
+lasso4_fit_1 %>% select_best(metric = "rmse")
+
+lasso7_fit_1 %>% select_best(metric = "rmse")
+
+```
+
+## 9. Fit a tuned elastic net model with the same predictors from (7). 
+  + Create a new `{parsnip}` elastic net model
+  + Use the same recipe from (7) above
+  + Create and apply a regular grid for the elastic net model
+  + Compare the metrics from the elastic net model to the best lasso model from (8). Which would you choose for your final model? What are the best hyperparameters for that model?
+
+```{r}
+
+enet_params <- parameters(penalty(), mixture())
+
+enet_grid <- grid_regular(enet_params, levels = c(10,5)) 
+
+enet_tune_mod <- linear_reg() %>%
+set_engine("glmnet") %>%
+set_args(penalty = tune(),
+         mixture = tune()) 
+
+enet_rec <-
+  recipe(
+  formula = score ~ gndr + ethnic_cd + econ_dsvntg + enrl_grd + migrant_ed_fg + classification + tst_atmpt_fg, 
+  data = data_train
+  ) %>%
+  step_naomit(everything(), skip = TRUE) %>% 
+  step_string2factor(gndr, ethnic_cd, econ_dsvntg, tst_atmpt_fg, migrant_ed_fg) %>%  
+  step_dummy(gndr, ethnic_cd, econ_dsvntg, tst_atmpt_fg, migrant_ed_fg) %>% 
+  step_normalize(enrl_grd, classification) 
+
+enet_tune_mod_results <- tune_grid(
+  enet_tune_mod,
+  preprocessor = enet_rec,
+  resample = cv_splits,
+  grid = enet_grid,
+  metrics = yardstick::metric_set(rmse),
+  control = control_resamples(verbose = TRUE,
+                              save_pred = TRUE))
+
+enet_tune_mod_results %>%
+  show_best(metric = "rmse", n = 5)
+
+enet_tune_mod_results %>% select_best(metric = "rmse")
+
+```
+
+
