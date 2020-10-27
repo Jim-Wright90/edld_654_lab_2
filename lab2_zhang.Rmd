@@ -273,8 +273,29 @@ enet_tune_mod_results <- tune_grid(
 enet_tune_mod_results %>%
   show_best(metric = "rmse", n = 5)
 
-enet_tune_mod_results %>% select_best(metric = "rmse")
+# Final fit
+# select tuning parameters
+enet_best <- enet_tune_mod_results %>% select_best(metric = "rmse")
+
+# finalize model 
+enet_mod_final <- enet_tune_mod %>% 
+  finalize_model(enet_best)
+
+# finalize recipe
+enet_rec_final <- enet_rec %>% 
+  finalize_recipe(enet_best)
+
+# run the last fit
+enet_test_results <- last_fit(
+  enet_mod_final,
+  enet_rec_final,
+  split = data_split
+)
+
+# collect metrics
+enet_test_results %>% 
+  collect_metrics() # what? R^2 = 79%? That's a million $$ answer!
 
 ```
 
-
+So 
